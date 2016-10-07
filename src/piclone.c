@@ -248,7 +248,7 @@ static gpointer backup_thread (gpointer data)
 
     // read in the source partition table
     n = 0;
-    sprintf (buffer, "sudo parted %s unit s print | tail -n +8 | head -n -1", src_dev);
+    sprintf (buffer, "sudo parted %s unit s print | sed '/^ /!d'", src_dev);
     fp = popen (buffer, "r");
     if (fp != NULL)
     {
@@ -355,8 +355,21 @@ static gpointer backup_thread (gpointer data)
 
             if (sys_printf (buffer))
             {
-                terminate_dialog (_("Could not create file system."));
-                return;
+                if (uid)
+                {
+                    // second try just in case the only problem was a corrupt UUID
+                    sprintf (buffer, "sudo mkfs.fat %s%d", partition_name (dst_dev, dev), parts[p].pnum);
+                    if (sys_printf (buffer))
+                    {
+                        terminate_dialog (_("Could not create file system."));
+                        return;
+                    }
+                }
+                else
+                {
+                    terminate_dialog (_("Could not create file system."));
+                    return;
+                }
             }
 
             if (lbl) sys_printf ("sudo fatlabel %s%d %s", partition_name (dst_dev, dev), parts[p].pnum, res);
@@ -370,8 +383,21 @@ static gpointer backup_thread (gpointer data)
 
             if (sys_printf (buffer))
             {
-                terminate_dialog (_("Could not create file system."));
-                return;
+                if (uid)
+                {
+                    // second try just in case the only problem was a corrupt UUID
+                    sprintf (buffer, "sudo mkfs.ext4 -F %s%d", partition_name (dst_dev, dev), parts[p].pnum);
+                    if (sys_printf (buffer))
+                    {
+                        terminate_dialog (_("Could not create file system."));
+                        return;
+                    }
+                }
+                else
+                {
+                    terminate_dialog (_("Could not create file system."));
+                    return;
+                }
             }
 
             if (lbl) sys_printf ("sudo e2label %s%d %s", partition_name (dst_dev, dev), parts[p].pnum, res);
